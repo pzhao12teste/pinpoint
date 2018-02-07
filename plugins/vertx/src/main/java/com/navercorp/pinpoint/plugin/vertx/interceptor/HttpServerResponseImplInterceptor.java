@@ -15,15 +15,11 @@
  */
 package com.navercorp.pinpoint.plugin.vertx.interceptor;
 
-import com.navercorp.pinpoint.bootstrap.context.AsyncContext;
-import com.navercorp.pinpoint.bootstrap.context.MethodDescriptor;
-import com.navercorp.pinpoint.bootstrap.context.SpanEventRecorder;
-import com.navercorp.pinpoint.bootstrap.context.SpanRecorder;
-import com.navercorp.pinpoint.bootstrap.context.Trace;
-import com.navercorp.pinpoint.bootstrap.context.TraceContext;
+import com.navercorp.pinpoint.bootstrap.context.*;
 import com.navercorp.pinpoint.bootstrap.plugin.http.HttpStatusCodeRecorder;
+import com.navercorp.pinpoint.plugin.vertx.ResponseGetter;
 import com.navercorp.pinpoint.plugin.vertx.VertxConstants;
-import io.vertx.core.http.impl.HttpServerResponseImpl;
+import io.netty.handler.codec.http.HttpResponse;
 
 /**
  * @author jaehong.kim
@@ -48,15 +44,15 @@ public class HttpServerResponseImplInterceptor extends AsyncContextSpanEventEndP
         recorder.recordServiceType(VertxConstants.VERTX_HTTP_SERVER_INTERNAL);
         recorder.recordException(throwable);
 
-        if (target instanceof HttpServerResponseImpl) {
-            final HttpServerResponseImpl response = (HttpServerResponseImpl) target;
+        if (target instanceof ResponseGetter) {
+            final HttpResponse response = ((ResponseGetter) target)._$PINPOINT$_getResponse();
             // TODO more simple.
             final AsyncContext asyncContext = getAsyncContext(target);
             if (asyncContext != null) {
                 final Trace trace = asyncContext.currentAsyncTraceObject();
                 if (trace != null) {
                     final SpanRecorder spanRecorder = trace.getSpanRecorder();
-                    this.httpStatusCodeRecorder.record(spanRecorder, response.getStatusCode());
+                    this.httpStatusCodeRecorder.record(spanRecorder, response.status().code());
                 }
             }
         }

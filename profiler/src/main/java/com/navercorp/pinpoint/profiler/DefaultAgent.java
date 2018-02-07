@@ -25,10 +25,8 @@ import com.navercorp.pinpoint.bootstrap.logging.PLogger;
 import com.navercorp.pinpoint.bootstrap.logging.PLoggerBinder;
 import com.navercorp.pinpoint.bootstrap.logging.PLoggerFactory;
 import com.navercorp.pinpoint.common.service.ServiceTypeRegistryService;
-import com.navercorp.pinpoint.common.util.Assert;
 import com.navercorp.pinpoint.profiler.context.module.ApplicationContext;
 import com.navercorp.pinpoint.profiler.context.module.DefaultApplicationContext;
-import com.navercorp.pinpoint.profiler.context.module.DefaultModuleFactoryProvider;
 import com.navercorp.pinpoint.profiler.util.SystemPropertyDumper;
 import com.navercorp.pinpoint.profiler.interceptor.registry.DefaultInterceptorRegistryBinder;
 import com.navercorp.pinpoint.profiler.interceptor.registry.InterceptorRegistryBinder;
@@ -124,12 +122,9 @@ public class DefaultAgent implements Agent {
     }
 
     protected ApplicationContext newApplicationContext(AgentOption agentOption, InterceptorRegistryBinder interceptorRegistryBinder) {
-        Assert.requireNonNull(agentOption, "agentOption must not be null");
-        ProfilerConfig profilerConfig = Assert.requireNonNull(agentOption.getProfilerConfig(), "profilerConfig must not be null");
-
-        DefaultModuleFactoryProvider moduleFactoryProvider = new DefaultModuleFactoryProvider(profilerConfig.getInjectionModuleFactoryClazzName());
-        return new DefaultApplicationContext(agentOption, interceptorRegistryBinder, moduleFactoryProvider);
+        return new DefaultApplicationContext(agentOption, interceptorRegistryBinder);
     }
+
 
     protected ApplicationContext getApplicationContext() {
         return applicationContext;

@@ -28,7 +28,6 @@ import com.navercorp.pinpoint.common.Charsets;
 import com.navercorp.pinpoint.common.service.DefaultAnnotationKeyRegistryService;
 import com.navercorp.pinpoint.common.service.DefaultServiceTypeRegistryService;
 import com.navercorp.pinpoint.profiler.context.module.DefaultApplicationContext;
-import com.navercorp.pinpoint.profiler.context.module.DefaultModuleFactoryProvider;
 import com.navercorp.pinpoint.profiler.interceptor.registry.InterceptorRegistryBinder;
 import com.navercorp.pinpoint.profiler.util.TestInterceptorRegistryBinder;
 import org.slf4j.Logger;
@@ -82,7 +81,7 @@ public class DependencyGraph {
                 "mockAgent", "mockApplicationName", profilerConfig, new URL[0],
                 null, new DefaultServiceTypeRegistryService(), new DefaultAnnotationKeyRegistryService());
 
-        return new DefaultApplicationContext(agentOption, binder, new DefaultModuleFactoryProvider(""));
+        return new DefaultApplicationContext(agentOption, binder);
     }
 
     private String currentWorkingDir() {

@@ -28,8 +28,6 @@ public interface UserService {
     
     void insertUser(User user);
 
-    void insertUserList(List<User> users);
-
     void deleteUser(User user);
 
     void updateUser(User user);

@@ -43,7 +43,6 @@ import java.util.List;
 @InterfaceStability.Unstable
 public class VertxPlugin implements ProfilerPlugin, MatchableTransformTemplateAware {
     private final PLogger logger = PLoggerFactory.getLogger(this.getClass());
-    private final boolean isInfo = logger.isInfoEnabled();
 
     private MatchableTransformTemplate transformTemplate;
 
@@ -51,15 +50,14 @@ public class VertxPlugin implements ProfilerPlugin, MatchableTransformTemplateAw
     public void setup(ProfilerPluginSetupContext context) {
         final VertxConfig config = new VertxConfig(context.getConfig());
         if (!config.isEnable() || (!config.isEnableHttpServer() && !config.isEnableHttpClient())) {
-            if (isInfo) {
+            if (logger.isInfoEnabled()) {
                 logger.info("Disable VertxPlugin.");
             }
             return;
         }
 
-        if (isInfo) {
-            // 3.3 <= x <= 3.5
-            logger.info("Enable VertxPlugin. version range=[3.3, 3.5.0]");
+        if (logger.isInfoEnabled()) {
+            logger.info("Enable VertxPlugin. version range=[3.3, 3.4]");
         }
 
         // for vertx.io 3.3.x, 3.4.x
@@ -70,7 +68,7 @@ public class VertxPlugin implements ProfilerPlugin, MatchableTransformTemplateAw
         if (!basePackageNames.isEmpty()) {
             // add async field & interceptor
             addHandlerInterceptor(basePackageNames);
-            if (isInfo) {
+            if (logger.isInfoEnabled()) {
                 logger.info("Adding Vertx Handler. base-packages={}.", config.getHandlerBasePackageNames());
             }
 
@@ -82,31 +80,16 @@ public class VertxPlugin implements ProfilerPlugin, MatchableTransformTemplateAw
         }
 
         if (config.isEnableHttpServer()) {
-            if (isInfo) {
+            if (logger.isInfoEnabled()) {
                 logger.info("Adding Vertx HTTP Server.");
             }
-            final VertxHttpServerConfig serverConfig = new VertxHttpServerConfig(context.getConfig());
-            final String requestHandlerMethodName = serverConfig.getRequestHandlerMethodName();
-            if (requestHandlerMethodName == null || requestHandlerMethodName.isEmpty()) {
-                logger.warn("Not found 'profiler.vertx.http.server.request-handler.method.name' in config");
-            } else {
-                try {
-                    final String className = toClassName(requestHandlerMethodName);
-                    final String methodName = toMethodName(requestHandlerMethodName);
-                    if (isInfo) {
-                        logger.info("Add request handler method for Vertx HTTP Server. class={}, method={}", className, methodName);
-                    }
-                    addRequestHandlerMethod(className, methodName);
-                } catch (IllegalArgumentException e) {
-                    logger.warn("Invalid 'profiler.vertx.http.server.request-handler.method.name' value={}", requestHandlerMethodName);
-                }
-            }
+            addServerConnection();
             addHttpServerRequestImpl();
             addHttpServerResponseImpl();
         }
 
         if (config.isEnableHttpClient()) {
-            if (isInfo) {
+            if (logger.isInfoEnabled()) {
                 logger.info("Adding Vertx HTTP Client.");
             }
             addHttpClientImpl();
@@ -126,25 +109,6 @@ public class VertxPlugin implements ProfilerPlugin, MatchableTransformTemplateAw
         }
         return list;
     }
-
-    String toClassName(String fullQualifiedMethodName) {
-        final int classEndPosition = fullQualifiedMethodName.lastIndexOf('.');
-        if (classEndPosition <= 0) {
-            throw new IllegalArgumentException("invalid full qualified method name(" + fullQualifiedMethodName + "). not found method");
-        }
-
-        return fullQualifiedMethodName.substring(0, classEndPosition).trim();
-    }
-
-    String toMethodName(String fullQualifiedMethodName) {
-        final int methodBeginPosition = fullQualifiedMethodName.lastIndexOf('.');
-        if (methodBeginPosition <= 0 || methodBeginPosition + 1 >= fullQualifiedMethodName.length()) {
-            throw new IllegalArgumentException("invalid full qualified method name(" + fullQualifiedMethodName + "). not found method");
-        }
-
-        return fullQualifiedMethodName.substring(methodBeginPosition + 1).trim();
-    }
-
 
     private void addHandlerInterceptor(final List<String> basePackageNames) {
         // basepackageNames AND io.vertx.core.Handler
@@ -196,18 +160,20 @@ public class VertxPlugin implements ProfilerPlugin, MatchableTransformTemplateAw
                 }
 
                 // skip executeFromIO()
+
                 return target.toBytecode();
             }
         });
     }
 
-    private void addRequestHandlerMethod(final String className, final String methodName) {
-        transformTemplate.transform(className, new TransformCallback() {
+    private void addServerConnection() {
+        transformTemplate.transform("io.vertx.core.http.impl.ServerConnection", new TransformCallback() {
 
             @Override
             public byte[] doInTransform(Instrumentor instrumentor, ClassLoader classLoader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws InstrumentException {
                 final InstrumentClass target = instrumentor.getInstrumentClass(classLoader, className, classfileBuffer);
-                final InstrumentMethod handleRequestMethod = target.getDeclaredMethod(methodName, "io.vertx.core.http.HttpServerRequest");
+
+                final InstrumentMethod handleRequestMethod = target.getDeclaredMethod("handleRequest", "io.vertx.core.http.impl.HttpServerRequestImpl", "io.vertx.core.http.impl.HttpServerResponseImpl");
                 if (handleRequestMethod != null) {
                     // entry point & set asynchronous of req, res.
                     handleRequestMethod.addInterceptor("com.navercorp.pinpoint.plugin.vertx.interceptor.ServerConnectionHandleRequestInterceptor");
@@ -248,6 +214,7 @@ public class VertxPlugin implements ProfilerPlugin, MatchableTransformTemplateAw
             public byte[] doInTransform(Instrumentor instrumentor, ClassLoader classLoader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws InstrumentException {
                 final InstrumentClass target = instrumentor.getInstrumentClass(classLoader, className, classfileBuffer);
                 target.addField(AsyncContextAccessor.class.getName());
+                target.addGetter("com.navercorp.pinpoint.plugin.vertx.ResponseGetter", "response");
 
                 final InstrumentMethod endMethod = target.getDeclaredMethod("end");
                 if (endMethod != null) {
@@ -347,7 +314,7 @@ public class VertxPlugin implements ProfilerPlugin, MatchableTransformTemplateAw
                 }
 
                 // handle.
-                final InstrumentMethod handleDrainedMethod = target.getDeclaredMethod("handleDrained");
+                final InstrumentMethod handleDrainedMethod = target.getDeclaredMethod("handleDrained", "java.lang.Throwable");
                 if (handleDrainedMethod != null) {
                     handleDrainedMethod.addInterceptor("com.navercorp.pinpoint.plugin.vertx.interceptor.HttpClientRequestImplInterceptor");
                 }

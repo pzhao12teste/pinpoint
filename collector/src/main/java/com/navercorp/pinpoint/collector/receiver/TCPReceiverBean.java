@@ -16,9 +16,6 @@
 
 package com.navercorp.pinpoint.collector.receiver;
 
-import com.navercorp.pinpoint.collector.receiver.tcp.DefaultTCPPacketHandlerFactory;
-import com.navercorp.pinpoint.collector.receiver.tcp.TCPPacketHandler;
-import com.navercorp.pinpoint.collector.receiver.tcp.TCPPacketHandlerFactory;
 import com.navercorp.pinpoint.collector.receiver.tcp.TCPReceiver;
 import com.navercorp.pinpoint.common.server.util.AddressFilter;
 import org.springframework.beans.factory.BeanNameAware;
@@ -46,7 +43,6 @@ public class TCPReceiverBean implements InitializingBean, DisposableBean, BeanNa
     private DispatchHandler dispatchHandler;
     private AddressFilter addressFilter;
 
-    private TCPPacketHandlerFactory tcpPacketHandlerFactory;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -59,26 +55,17 @@ public class TCPReceiverBean implements InitializingBean, DisposableBean, BeanNa
         Objects.requireNonNull(addressFilter, "addressFilter must not be null");
         Objects.requireNonNull(executor, "executor must not be null");
 
-        tcpReceiver = createTcpReceiver(beanName, this.bindIp, bindPort, executor, dispatchHandler, this.tcpPacketHandlerFactory, addressFilter);
+        tcpReceiver = createTcpReceiver(beanName, this.bindIp, bindPort, executor, dispatchHandler, addressFilter);
         tcpReceiver.start();
     }
 
 
-    private TCPReceiver createTcpReceiver(String beanName, String bindIp, int port, Executor executor,
-                                          DispatchHandler dispatchHandler, TCPPacketHandlerFactory tcpPacketHandlerFactory, AddressFilter addressFilter) {
+    private TCPReceiver createTcpReceiver(String beanName, String bindIp, int port, Executor executor, DispatchHandler dispatchHandler, AddressFilter addressFilter) {
         InetSocketAddress bindAddress = new InetSocketAddress(bindIp, port);
-        TCPPacketHandler tcpPacketHandler = wrapDispatchHandler(dispatchHandler, tcpPacketHandlerFactory);
 
-        return new TCPReceiver(beanName, tcpPacketHandler, executor, bindAddress, addressFilter);
+        return new TCPReceiver(beanName, dispatchHandler, executor, bindAddress, addressFilter);
     }
 
-    private TCPPacketHandler wrapDispatchHandler(DispatchHandler dispatchHandler, TCPPacketHandlerFactory tcpPacketHandlerFactory) {
-        if (tcpPacketHandlerFactory == null) {
-            // using default Factory
-            tcpPacketHandlerFactory = new DefaultTCPPacketHandlerFactory();
-        }
-        return tcpPacketHandlerFactory.build(dispatchHandler);
-    }
 
 
     @Override
@@ -96,11 +83,7 @@ public class TCPReceiverBean implements InitializingBean, DisposableBean, BeanNa
     }
 
     public void setDispatchHandler(DispatchHandler dispatchHandler) {
-        this.dispatchHandler = dispatchHandler;
-    }
-
-    public void setTcpPacketHandlerFactory(TCPPacketHandlerFactory tcpPacketHandlerFactory) {
-        this.tcpPacketHandlerFactory = tcpPacketHandlerFactory;
+        this.dispatchHandler = Objects.requireNonNull(dispatchHandler, "dispatchHandler must not be null");
     }
 
     public void setBindIp(String bindIp) {

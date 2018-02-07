@@ -16,8 +16,6 @@
 
 package com.navercorp.pinpoint.collector.dao.hbase;
 
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,9 +42,6 @@ public class HbaseAgentLifeCycleDao implements AgentLifeCycleDao {
     private HbaseOperations2 hbaseTemplate;
 
     @Autowired
-    private TableNameProvider tableNameProvider;
-
-    @Autowired
     private AgentLifeCycleValueMapper valueMapper;
 
     @Override
@@ -65,8 +60,7 @@ public class HbaseAgentLifeCycleDao implements AgentLifeCycleDao {
 
         byte[] rowKey = createRowKey(agentId, startTimestamp, eventIdentifier);
 
-        TableName agentLifeCycleTableName = tableNameProvider.getTableName(HBaseTables.AGENT_LIFECYCLE_STR);
-        this.hbaseTemplate.put(agentLifeCycleTableName, rowKey, HBaseTables.AGENT_LIFECYCLE_CF_STATUS, HBaseTables.AGENT_LIFECYCLE_CF_STATUS_QUALI_STATES,
+        this.hbaseTemplate.put(HBaseTables.AGENT_LIFECYCLE, rowKey, HBaseTables.AGENT_LIFECYCLE_CF_STATUS, HBaseTables.AGENT_LIFECYCLE_CF_STATUS_QUALI_STATES,
                 agentLifeCycleBo, this.valueMapper);
     }
 

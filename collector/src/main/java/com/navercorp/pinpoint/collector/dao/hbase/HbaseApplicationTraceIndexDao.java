@@ -19,7 +19,6 @@ package com.navercorp.pinpoint.collector.dao.hbase;
 import static com.navercorp.pinpoint.common.hbase.HBaseTables.*;
 
 import com.navercorp.pinpoint.collector.dao.ApplicationTraceIndexDao;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.navercorp.pinpoint.common.server.util.AcceptedTimeService;
 import com.navercorp.pinpoint.common.buffer.AutomaticBuffer;
 import com.navercorp.pinpoint.common.buffer.Buffer;
@@ -28,7 +27,6 @@ import com.navercorp.pinpoint.common.server.util.SpanUtils;
 import com.navercorp.pinpoint.thrift.dto.TSpan;
 import com.sematext.hbase.wd.AbstractRowKeyDistributor;
 
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -45,9 +43,6 @@ public class HbaseApplicationTraceIndexDao implements ApplicationTraceIndexDao {
 
     @Autowired
     private HbaseOperations2 hbaseTemplate;
-
-    @Autowired
-    private TableNameProvider tableNameProvider;
 
     @Autowired
     private AcceptedTimeService acceptedTimeService;
@@ -74,10 +69,9 @@ public class HbaseApplicationTraceIndexDao implements ApplicationTraceIndexDao {
 
         put.addColumn(APPLICATION_TRACE_INDEX_CF_TRACE, makeQualifier(span) , acceptedTime, value);
 
-        TableName applicationTraceIndexTableName = tableNameProvider.getTableName(APPLICATION_TRACE_INDEX_STR);
-        boolean success = hbaseTemplate.asyncPut(applicationTraceIndexTableName, put);
+        boolean success = hbaseTemplate.asyncPut(APPLICATION_TRACE_INDEX, put);
         if (!success) {
-            hbaseTemplate.put(applicationTraceIndexTableName, put);
+            hbaseTemplate.put(APPLICATION_TRACE_INDEX, put);
         }
     }
 

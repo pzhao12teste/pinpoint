@@ -115,6 +115,9 @@
 	background-color: #46BCFD;
 	color: #FFF;
 }
+#pinpoint-configuration .some-list-content li.selected span.remove {
+    display: none;
+}
 #pinpoint-configuration .some-list-content li.selected span.edit {
     display:none;
 }

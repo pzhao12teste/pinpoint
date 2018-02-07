@@ -32,7 +32,6 @@ public class VertxHttpServerConfig {
     private final String realIpEmptyValue;
     private final Filter<String> excludeProfileMethodFilter;
     private final boolean hidePinpointHeader;
-    private final String requestHandlerMethodName;
 
     public VertxHttpServerConfig(ProfilerConfig config) {
         if (config == null) {
@@ -57,7 +56,6 @@ public class VertxHttpServerConfig {
             this.excludeProfileMethodFilter = new SkipFilter<String>();
         }
         this.hidePinpointHeader = config.readBoolean("profiler.vertx.http.server.hidepinpointheader", true);
-        this.requestHandlerMethodName = config.readString("profiler.vertx.http.server.request-handler.method.name", "io.vertx.ext.web.impl.RouterImpl.accept");
     }
 
     public boolean isTraceRequestParam() {
@@ -82,9 +80,5 @@ public class VertxHttpServerConfig {
 
     public boolean isHidePinpointHeader() {
         return hidePinpointHeader;
-    }
-
-    public String getRequestHandlerMethodName() {
-        return requestHandlerMethodName;
     }
 }

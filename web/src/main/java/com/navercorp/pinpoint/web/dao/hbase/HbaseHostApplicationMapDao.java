@@ -26,7 +26,6 @@ import com.navercorp.pinpoint.common.buffer.Buffer;
 import com.navercorp.pinpoint.common.hbase.HBaseTables;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
 import com.navercorp.pinpoint.common.hbase.RowMapper;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.navercorp.pinpoint.common.util.TimeSlot;
 import com.navercorp.pinpoint.common.util.TimeUtils;
 import com.navercorp.pinpoint.web.dao.HostApplicationMapDao;
@@ -36,7 +35,6 @@ import com.navercorp.pinpoint.web.vo.Range;
 import com.sematext.hbase.wd.AbstractRowKeyDistributor;
 
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Scan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,9 +60,6 @@ public class HbaseHostApplicationMapDao implements HostApplicationMapDao {
     private HbaseOperations2 hbaseOperations2;
 
     @Autowired
-    private TableNameProvider tableNameProvider;
-
-    @Autowired
     @Qualifier("hostApplicationMapperVer2")
     private RowMapper<List<AcceptApplication>> hostApplicationMapperVer2;
 
@@ -82,9 +77,7 @@ public class HbaseHostApplicationMapDao implements HostApplicationMapDao {
             throw new NullPointerException("fromApplication must not be null");
         }
         final Scan scan = createScan(fromApplication, range);
-
-        TableName hostApplicationMapTableName = tableNameProvider.getTableName(HBaseTables.HOST_APPLICATION_MAP_VER2_STR);
-        final List<List<AcceptApplication>> result = hbaseOperations2.findParallel(hostApplicationMapTableName, scan, acceptApplicationRowKeyDistributor, hostApplicationMapperVer2, HOST_APPLICATION_MAP_VER2_NUM_PARTITIONS);
+        final List<List<AcceptApplication>> result = hbaseOperations2.findParallel(HBaseTables.HOST_APPLICATION_MAP_VER2, scan, acceptApplicationRowKeyDistributor, hostApplicationMapperVer2, HOST_APPLICATION_MAP_VER2_NUM_PARTITIONS);
         if (CollectionUtils.isNotEmpty(result)) {
             final Set<AcceptApplication> resultSet = new HashSet<>();
             for (List<AcceptApplication> resultList : result) {

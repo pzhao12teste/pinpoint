@@ -18,7 +18,6 @@ package com.navercorp.pinpoint.web.dao.hbase;
 
 import static org.mockito.Mockito.*;
 
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.navercorp.pinpoint.common.server.bo.AgentLifeCycleBo;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
 import com.navercorp.pinpoint.common.hbase.ResultsExtractor;
@@ -36,7 +35,6 @@ import org.junit.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
 
 import java.util.Arrays;
 import java.util.List;
@@ -48,14 +46,6 @@ public class HbaseAgentLifeCycleDaoTest {
 
     @Mock
     private HbaseOperations2 hbaseOperations2;
-
-    @Spy
-    private TableNameProvider tableNameProvider = new TableNameProvider() {
-        @Override
-        public TableName getTableName(String tableName) {
-            return TableName.valueOf(tableName);
-        }
-    };
 
     @Mock
     private RowMapper<AgentLifeCycleBo> agentLifeCycleMapper;

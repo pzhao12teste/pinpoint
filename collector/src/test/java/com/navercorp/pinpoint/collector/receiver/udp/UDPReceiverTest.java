@@ -17,10 +17,6 @@
 package com.navercorp.pinpoint.collector.receiver.udp;
 
 import com.google.common.util.concurrent.MoreExecutors;
-import com.navercorp.pinpoint.collector.util.DatagramPacketFactory;
-import com.navercorp.pinpoint.collector.util.DefaultObjectPool;
-import com.navercorp.pinpoint.collector.util.ObjectPool;
-import com.navercorp.pinpoint.collector.util.ObjectPoolFactory;
 import org.apache.hadoop.hbase.shaded.org.apache.commons.io.IOUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -71,9 +67,7 @@ public class UDPReceiverTest {
         PacketHandlerFactory packetHandlerFactory = mock(PacketHandlerFactory.class);
         when(packetHandlerFactory.createPacketHandler()).thenReturn(loggingPacketHandler);
         try {
-            ObjectPoolFactory<DatagramPacket> packetFactory = new DatagramPacketFactory();
-            ObjectPool<DatagramPacket> pool = new DefaultObjectPool<>(packetFactory, 10);
-            receiver = new UDPReceiver("test", packetHandlerFactory, executor, 8, bindAddress, pool);
+            receiver = new UDPReceiver("test", packetHandlerFactory, executor, 8, bindAddress);
         } catch (Exception e) {
             logger.debug(e.getMessage(), e);
             Assert.fail(e.getMessage());
@@ -133,9 +127,8 @@ public class UDPReceiverTest {
 
         try {
             InetSocketAddress bindAddress = new InetSocketAddress(ADDRESS, PORT);
-            ObjectPoolFactory<DatagramPacket> packetFactory = new DatagramPacketFactory();
-            ObjectPool<DatagramPacket> pool = new DefaultObjectPool<>(packetFactory, 10);
-            receiver = new UDPReceiver("test", packetHandlerFactory, mockExecutor, 8, bindAddress, pool) {
+
+            receiver = new UDPReceiver("test", packetHandlerFactory, mockExecutor, 8, bindAddress) {
                 @Override
                 boolean validatePacket(DatagramPacket packet) {
                     interceptValidatePacket(packet);

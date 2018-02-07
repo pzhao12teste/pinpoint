@@ -17,21 +17,14 @@
 package com.navercorp.pinpoint.collector.dao.hbase.statistics;
 
 import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Increment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author emeroad
- * @author HyunGil Jeong
  */
 public class RowKeyMerge {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -44,24 +37,19 @@ public class RowKeyMerge {
         this.family = Arrays.copyOf(family, family.length);
     }
 
-    public Map<TableName, List<Increment>> createBulkIncrement(Map<RowInfo, Long> data, RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix) {
+    public  List<Increment> createBulkIncrement(Map<RowInfo, Long> data, RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix) {
         if (data.isEmpty()) {
-            return Collections.emptyMap();
+            return Collections.emptyList();
         }
 
-        final Map<TableName, List<Increment>> tableIncrementMap = new HashMap<>();
-        final Map<TableName, Map<RowKey, List<ColumnName>>> tableRowKeyMap = mergeRowKeys(data);
+        final Map<RowKey, List<ColumnName>> rowkeyMerge = rowKeyBaseMerge(data);
 
-        for (Map.Entry<TableName, Map<RowKey, List<ColumnName>>> tableRowKeys : tableRowKeyMap.entrySet()) {
-            final TableName tableName = tableRowKeys.getKey();
-            final List<Increment> incrementList = new ArrayList<>();
-            for (Map.Entry<RowKey, List<ColumnName>> rowKeyEntry : tableRowKeys.getValue().entrySet()) {
-                Increment increment = createIncrement(rowKeyEntry, rowKeyDistributorByHashPrefix);
-                incrementList.add(increment);
-            }
-            tableIncrementMap.put(tableName, incrementList);
+        List<Increment> incrementList = new ArrayList<>();
+        for (Map.Entry<RowKey, List<ColumnName>> rowKeyEntry : rowkeyMerge.entrySet()) {
+            Increment increment = createIncrement(rowKeyEntry, rowKeyDistributorByHashPrefix);
+            incrementList.add(increment);
         }
-        return tableIncrementMap;
+        return incrementList;
     }
 
     private Increment createIncrement(Map.Entry<RowKey, List<ColumnName>> rowKeyEntry, RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix) {
@@ -80,8 +68,8 @@ public class RowKeyMerge {
         return increment;
     }
 
-    private Map<TableName, Map<RowKey, List<ColumnName>>> mergeRowKeys(Map<RowInfo, Long> data) {
-        final Map<TableName, Map<RowKey, List<ColumnName>>> tables = new HashMap<>();
+    private Map<RowKey, List<ColumnName>> rowKeyBaseMerge(Map<RowInfo, Long> data) {
+        final Map<RowKey, List<ColumnName>> merge = new HashMap<>();
 
         for (Map.Entry<RowInfo, Long> entry : data.entrySet()) {
             final RowInfo rowInfo = entry.getKey();
@@ -89,21 +77,16 @@ public class RowKeyMerge {
             long callCount = entry.getValue();
             rowInfo.getColumnName().setCallCount(callCount);
 
-            final TableName tableName = rowInfo.getTableName();
-            final RowKey rowKey = rowInfo.getRowKey();
-
-            Map<RowKey, List<ColumnName>> rows = tables.get(tableName);
-            if (rows == null) {
-                rows = new HashMap<>();
-                tables.put(tableName, rows);
+            RowKey rowKey = rowInfo.getRowKey();
+            List<ColumnName> oldList = merge.get(rowKey);
+            if (oldList == null) {
+                List<ColumnName> newList = new ArrayList<>();
+                newList.add(rowInfo.getColumnName());
+                merge.put(rowKey, newList);
+            } else {
+                oldList.add(rowInfo.getColumnName());
             }
-            List<ColumnName> columnNames = rows.get(rowKey);
-            if (columnNames == null) {
-                columnNames = new ArrayList<>();
-                rows.put(rowKey, columnNames);
-            }
-            columnNames.add(rowInfo.getColumnName());
         }
-        return tables;
+        return merge;
     }
 }

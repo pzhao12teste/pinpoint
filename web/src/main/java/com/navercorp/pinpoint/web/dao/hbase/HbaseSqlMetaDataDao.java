@@ -18,10 +18,8 @@ package com.navercorp.pinpoint.web.dao.hbase;
 
 import java.util.List;
 
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
 
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Get;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -40,9 +38,6 @@ public class HbaseSqlMetaDataDao implements SqlMetaDataDao {
 
     @Autowired
     private HbaseOperations2 hbaseOperations2;
-
-    @Autowired
-    private TableNameProvider tableNameProvider;
 
 //    @Autowired
 //    @Qualifier("sqlMetaDataMapper")
@@ -64,8 +59,7 @@ public class HbaseSqlMetaDataDao implements SqlMetaDataDao {
         Get get = new Get(rowKey);
         get.addFamily(HBaseTables.SQL_METADATA_VER2_CF_SQL);
 
-        TableName sqlMetaDataTableName = tableNameProvider.getTableName(HBaseTables.SQL_METADATA_VER2_STR);
-        return hbaseOperations2.get(sqlMetaDataTableName, get, sqlMetaDataMapper);
+        return hbaseOperations2.get(HBaseTables.SQL_METADATA_VER2, get, sqlMetaDataMapper);
     }
 
     private byte[] getDistributedKey(byte[] rowKey) {

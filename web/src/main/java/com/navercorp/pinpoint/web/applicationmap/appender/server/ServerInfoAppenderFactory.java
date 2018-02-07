@@ -16,12 +16,17 @@
 
 package com.navercorp.pinpoint.web.applicationmap.appender.server;
 
+import com.navercorp.pinpoint.common.util.PinpointThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.Objects;
-import java.util.concurrent.Executor;
+import javax.annotation.PreDestroy;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author HyunGil Jeong
@@ -29,14 +34,40 @@ import java.util.concurrent.Executor;
 @Component
 public class ServerInfoAppenderFactory {
 
-    private final Executor executor;
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    private final String mode;
+    private final ExecutorService executorService;
 
     @Autowired
-    public ServerInfoAppenderFactory(@Qualifier("serverInfoAppendExecutor") Executor executor) {
-        this.executor = Objects.requireNonNull(executor, "executor must not be null");
+    public ServerInfoAppenderFactory(
+            @Value("#{pinpointWebProps['web.servermap.appender.mode'] ?: 'serial'}") String mode,
+            @Value("#{pinpointWebProps['web.servermap.appender.parallel.maxthreads'] ?: 16}") int maxThreads) {
+        logger.info("ServerInfoAppender mode : {}", mode);
+        this.mode = mode;
+        if (this.mode.equalsIgnoreCase("parallel")) {
+            executorService = Executors.newFixedThreadPool(maxThreads, new PinpointThreadFactory("Pinpoint-node-histogram-appender", true));
+        } else {
+            executorService = null;
+        }
     }
 
     public ServerInfoAppender create(ServerInstanceListFactory serverInstanceListFactory) {
-        return new DefaultServerInfoAppender(serverInstanceListFactory, executor);
+        if (mode.equalsIgnoreCase("parallel")) {
+            return new ParallelServerInfoAppender(serverInstanceListFactory, executorService);
+        }
+        return new SerialServerInfoAppender(serverInstanceListFactory);
+    }
+
+    @PreDestroy
+    public void preDestroy() {
+        if (executorService != null) {
+            executorService.shutdown();
+            try {
+                executorService.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 }

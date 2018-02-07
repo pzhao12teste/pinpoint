@@ -18,7 +18,6 @@ package com.navercorp.pinpoint.collector.dao.hbase;
 
 import com.navercorp.pinpoint.collector.dao.AgentInfoDao;
 import com.navercorp.pinpoint.collector.mapper.thrift.ThriftBoMapper;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.navercorp.pinpoint.common.server.bo.AgentInfoBo;
 import com.navercorp.pinpoint.common.server.bo.JvmInfoBo;
 import com.navercorp.pinpoint.common.server.bo.ServerMetaDataBo;
@@ -30,7 +29,6 @@ import com.navercorp.pinpoint.thrift.dto.TAgentInfo;
 import com.navercorp.pinpoint.thrift.dto.TJvmInfo;
 import com.navercorp.pinpoint.thrift.dto.TServerMetaData;
 
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
@@ -49,9 +47,6 @@ public class HbaseAgentInfoDao implements AgentInfoDao {
 
     @Autowired
     private HbaseOperations2 hbaseTemplate;
-
-    @Autowired
-    private TableNameProvider tableNameProvider;
 
     @Autowired
     @Qualifier("agentInfoBoMapper")
@@ -98,7 +93,6 @@ public class HbaseAgentInfoDao implements AgentInfoDao {
             put.addColumn(HBaseTables.AGENTINFO_CF_INFO, HBaseTables.AGENTINFO_CF_INFO_JVM, jvmInfoBoValue);
         }
 
-        TableName agentInfoTableName = tableNameProvider.getTableName(HBaseTables.AGENTINFO_STR);
-        hbaseTemplate.put(agentInfoTableName, put);
+        hbaseTemplate.put(HBaseTables.AGENTINFO, put);
     }
 }

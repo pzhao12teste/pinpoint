@@ -16,6 +16,7 @@
 
 package com.navercorp.pinpoint.collector.receiver.tcp;
 
+import com.navercorp.pinpoint.collector.receiver.DispatchHandler;
 import com.navercorp.pinpoint.collector.receiver.AddressFilterAdaptor;
 import com.navercorp.pinpoint.common.server.util.AddressFilter;
 import com.navercorp.pinpoint.rpc.PinpointSocket;
@@ -51,10 +52,11 @@ public class TCPReceiver {
 
     private final Executor executor;
 
-    private final TCPPacketHandler tcpPacketHandler;
+    private final SendPacketHandler sendPacketHandler;
+    private final RequestPacketHandler requestPacketHandler;
 
 
-    public TCPReceiver(String name, TCPPacketHandler tcpPacketHandler, Executor executor, InetSocketAddress bindAddress, AddressFilter addressFilter) {
+    public TCPReceiver(String name, DispatchHandler dispatchHandler, Executor executor, InetSocketAddress bindAddress, AddressFilter addressFilter) {
         this.name = Objects.requireNonNull(name, "name must not be null");
         this.logger = LoggerFactory.getLogger(name);
 
@@ -63,8 +65,9 @@ public class TCPReceiver {
         this.addressFilter = Objects.requireNonNull(addressFilter, "addressFilter must not be null");
         this.executor = Objects.requireNonNull(executor, "executor must not be null");
 
-        this.tcpPacketHandler = Objects.requireNonNull(tcpPacketHandler, "tcpPacketHandler must not be null");
-
+        Objects.requireNonNull(dispatchHandler, "dispatchHandler must not be null");
+        this.sendPacketHandler = new SendPacketHandler(dispatchHandler);
+        this.requestPacketHandler = new RequestPacketHandler(dispatchHandler);
     }
 
     public void start() {
@@ -115,7 +118,7 @@ public class TCPReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                tcpPacketHandler.handleSend(sendPacket, pinpointSocket);
+                sendPacketHandler.handle(sendPacket, pinpointSocket);
             }
         });
     }
@@ -124,7 +127,7 @@ public class TCPReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                tcpPacketHandler.handleRequest(requestPacket, pinpointSocket);
+                requestPacketHandler.handle(requestPacket, pinpointSocket);
             }
         });
     }

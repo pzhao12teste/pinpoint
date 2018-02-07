@@ -17,26 +17,20 @@ package com.navercorp.pinpoint.web.service;
 
 import java.util.List;
 
-import com.navercorp.pinpoint.web.config.ConfigProperties;
 import com.navercorp.pinpoint.web.util.DefaultUserInfoDecoder;
 import com.navercorp.pinpoint.web.util.UserInfoDecoder;
 import com.navercorp.pinpoint.web.vo.User;
-import com.navercorp.pinpoint.web.vo.UserGroupMemberParam;
-import com.navercorp.pinpoint.web.vo.exception.PinpointUserGroupException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.navercorp.pinpoint.web.dao.UserGroupDao;
 import com.navercorp.pinpoint.web.vo.UserGroup;
 import com.navercorp.pinpoint.web.vo.UserGroupMember;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 /**
  * @author minwoo.jung
  */
 @Service
-@Transactional(rollbackFor = {Exception.class})
 public class UserGroupServiceImpl implements UserGroupService {
 
     @Autowired
@@ -44,44 +38,23 @@ public class UserGroupServiceImpl implements UserGroupService {
 
     @Autowired(required = false)
     UserInfoDecoder userInfoDecoder = DefaultUserInfoDecoder.EMPTY_USER_INFO_DECODER;
-
-    @Autowired
-    AlarmService alarmService;
-
-    @Autowired
-    private ConfigProperties webProperties;
-
-
     
     @Override
-    public String createUserGroup(UserGroup userGroup, String userId) throws PinpointUserGroupException {
-        String userGroupNumber = userGroupDao.createUserGroup(userGroup);
-
-        if (webProperties.isOpenSource() == false) {
-            if (StringUtils.isEmpty(userId)) {
-                throw new PinpointUserGroupException("There is not userId or fail to create userGroup.");
-            }
-
-            insertMember(new UserGroupMember(userGroup.getId(), userId));
-        }
-
-        return userGroupNumber;
+    public String createUserGroup(UserGroup userGroup) {
+        return userGroupDao.createUserGroup(userGroup);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<UserGroup> selectUserGroup() {
         return userGroupDao.selectUserGroup();
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<UserGroup> selectUserGroupByUserId(String userId) {
         return userGroupDao.selectUserGroupByUserId(userId);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<UserGroup> selectUserGroupByUserGroupId(String userGroupId) {
         return userGroupDao.selectUserGroupByUserGroupId(userGroupId);
     }
@@ -92,27 +65,8 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
-    public void deleteUserGroup(UserGroup userGroup, String userId) throws PinpointUserGroupException {
-        if (webProperties.isOpenSource() == false) {
-            if (checkValid(userId, userGroup.getId()) == false) {
-                throw new PinpointUserGroupException("There is not userId or you don't have authoriy for user group.");
-            }
-        }
-
+    public void deleteUserGroup(UserGroup userGroup) {
         userGroupDao.deleteUserGroup(userGroup);
-        deleteMemberByUserGroupId(userGroup.getId());
-        alarmService.deleteRuleByUserGroupId(userGroup.getId());
-    }
-
-    private boolean checkValid(String userId, String userGroupId) {
-        if (StringUtils.isEmpty(userId)) {
-            return false;
-        }
-        if (containMemberForUserGroup(userId, userGroupId) == false) {
-            return false;
-        }
-
-        return true;
     }
 
     @Override
@@ -121,37 +75,11 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
-    public void insertMemberWithCheckAuthority(UserGroupMemberParam userGroupMember, String userId) throws PinpointUserGroupException {
-        if (webProperties.isOpenSource() == false) {
-            boolean isValid = checkValid(userId, userGroupMember.getUserGroupId());
-            if (isValid == false) {
-                throw new PinpointUserGroupException("there is not userId or you don't have authority for user group.");
-            }
-        }
-
-        insertMember(userGroupMember);
-    }
-
-
-    @Override
-    public void deleteMemberWithCheckAuthority(UserGroupMember userGroupMember, String userId) throws PinpointUserGroupException {
-        if (webProperties.isOpenSource() == false) {
-            boolean isValid = checkValid(userId, userGroupMember.getUserGroupId());
-            if (isValid == false) {
-                throw new PinpointUserGroupException("there is not userId or you don't have authority for user group.");
-            }
-        }
-
-        userGroupDao.deleteMember(userGroupMember);
-    }
-
-    @Override
     public void deleteMember(UserGroupMember userGroupMember) {
-        userGroupDao.deleteMember(userGroupMember);
+        userGroupDao.deleteMember(userGroupMember); 
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<UserGroupMember> selectMember(String userGroupId) {
         return userGroupDao.selectMember(userGroupId);
     }
@@ -162,7 +90,6 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
     
     @Override
-    @Transactional(readOnly = true)
     public List<String> selectPhoneNumberOfMember(String userGroupId) {
         final List<String> phoneNumberList = userGroupDao.selectPhoneNumberOfMember(userGroupId);
         List<String> decodedPhoneNumberList = phoneNumberList;
@@ -175,7 +102,6 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<String> selectEmailOfMember(String userGroupId) {
         return userGroupDao.selectEmailOfMember(userGroupId);
     }
@@ -191,7 +117,6 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public boolean containMemberForUserGroup(String userId, String userGroupId) {
         List<UserGroupMember> memberList = userGroupDao.selectMember(userGroupId);
         for (UserGroupMember member : memberList) {

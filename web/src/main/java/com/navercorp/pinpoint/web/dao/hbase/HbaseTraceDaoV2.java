@@ -4,7 +4,6 @@ import com.google.common.collect.Lists;
 import com.navercorp.pinpoint.common.hbase.HBaseTables;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
 import com.navercorp.pinpoint.common.hbase.RowMapper;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.navercorp.pinpoint.common.server.bo.SpanBo;
 import com.navercorp.pinpoint.common.server.bo.serializer.RowKeyEncoder;
 import com.navercorp.pinpoint.common.server.bo.serializer.trace.v2.SpanEncoder;
@@ -12,7 +11,6 @@ import com.navercorp.pinpoint.common.util.TransactionId;
 import com.navercorp.pinpoint.web.dao.TraceDao;
 import com.navercorp.pinpoint.web.mapper.CellTraceMapper;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.filter.BinaryPrefixComparator;
 import org.apache.hadoop.hbase.filter.CompareFilter;
@@ -39,9 +37,6 @@ public class HbaseTraceDaoV2 implements TraceDao {
 
     @Autowired
     private HbaseOperations2 template2;
-
-    @Autowired
-    private TableNameProvider tableNameProvider;
 
     @Autowired
     @Qualifier("traceRowKeyEncoderV2")
@@ -77,8 +72,7 @@ public class HbaseTraceDaoV2 implements TraceDao {
         }
 
         byte[] transactionIdRowKey = rowKeyEncoder.encodeRowKey(transactionId);
-        TableName traceTableName = tableNameProvider.getTableName(HBaseTables.TRACE_V2_STR);
-        return template2.get(traceTableName, transactionIdRowKey, HBaseTables.TRACE_V2_CF_SPAN, spanMapperV2);
+        return template2.get(HBaseTables.TRACE_V2, transactionIdRowKey, HBaseTables.TRACE_V2_CF_SPAN, spanMapperV2);
     }
 
 
@@ -143,9 +137,7 @@ public class HbaseTraceDaoV2 implements TraceDao {
             final Get get = createGet(transactionId, columnFamily, filter);
             multiGet.add(get);
         }
-
-        TableName traceTableName = tableNameProvider.getTableName(HBaseTables.TRACE_V2_STR);
-        return template2.get(traceTableName, multiGet, spanMapperV2);
+        return template2.get(HBaseTables.TRACE_V2, multiGet, spanMapperV2);
     }
 
     private Get createGet(TransactionId transactionId, byte[] columnFamily, Filter filter) {

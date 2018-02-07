@@ -18,7 +18,6 @@ package com.navercorp.pinpoint.web.dao.hbase;
 
 import com.navercorp.pinpoint.common.hbase.HBaseTables;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.navercorp.pinpoint.common.server.bo.codec.stat.ApplicationStatDecoder;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.AgentStatUtils;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.ApplicationStatHbaseOperationFactory;
@@ -29,7 +28,6 @@ import com.navercorp.pinpoint.web.mapper.stat.ApplicationStatMapper;
 import com.navercorp.pinpoint.web.mapper.stat.SampledApplicationStatResultExtractor;
 import com.navercorp.pinpoint.web.vo.Range;
 import com.navercorp.pinpoint.web.vo.stat.AggregationStatData;
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Scan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +51,6 @@ public class HbaseApplicationStatDaoOperations {
     private HbaseOperations2 hbaseOperations2;
 
     @Autowired
-    private TableNameProvider tableNameProvider;
-
-    @Autowired
     private ApplicationStatHbaseOperationFactory operationFactory;
 
     List<AggregationStatData> getSampledStatList(StatType statType, SampledApplicationStatResultExtractor resultExtractor, String applicationId, Range range) {
@@ -69,9 +64,7 @@ public class HbaseApplicationStatDaoOperations {
             throw new NullPointerException("resultExtractor must not be null");
         }
         Scan scan = this.createScan(statType, applicationId, range);
-
-        TableName applicationStatAggreTableName = tableNameProvider.getTableName(HBaseTables.APPLICATION_STAT_AGGRE_STR);
-        return hbaseOperations2.findParallel(applicationStatAggreTableName, scan, this.operationFactory.getRowKeyDistributor(), resultExtractor, APPLICATION_STAT_NUM_PARTITIONS);
+        return hbaseOperations2.findParallel(HBaseTables.APPLICATION_STAT_AGGRE, scan, this.operationFactory.getRowKeyDistributor(), resultExtractor, APPLICATION_STAT_NUM_PARTITIONS);
     }
 
     ApplicationStatMapper createRowMapper(ApplicationStatDecoder decoder, Range range) {

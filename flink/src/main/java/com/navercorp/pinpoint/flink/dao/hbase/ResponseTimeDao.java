@@ -17,7 +17,6 @@ package com.navercorp.pinpoint.flink.dao.hbase;
 
 import com.navercorp.pinpoint.common.hbase.HBaseTables;
 import com.navercorp.pinpoint.common.hbase.HbaseTemplate2;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.ApplicationStatHbaseOperationFactory;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.join.ResponseTimeSerializer;
 import com.navercorp.pinpoint.common.server.bo.stat.join.JoinStatBo;
@@ -41,13 +40,12 @@ public class ResponseTimeDao {
     private final HbaseTemplate2 hbaseTemplate2;
     private final ApplicationStatHbaseOperationFactory applicationStatHbaseOperationFactory;
     private final ResponseTimeSerializer responseTimeSerializer;
-    private final TableNameProvider tableNameProvider;
+    private final TableName APPLICATION_STAT_AGGRE = HBaseTables.APPLICATION_STAT_AGGRE;
 
-    public ResponseTimeDao(HbaseTemplate2 hbaseTemplate2, ApplicationStatHbaseOperationFactory applicationStatHbaseOperationFactory, ResponseTimeSerializer responseTimeSerializer, TableNameProvider tableNameProvider) {
+    public ResponseTimeDao(HbaseTemplate2 hbaseTemplate2, ApplicationStatHbaseOperationFactory applicationStatHbaseOperationFactory, ResponseTimeSerializer responseTimeSerializer) {
         this.hbaseTemplate2 = Objects.requireNonNull(hbaseTemplate2, "hbaseTemplate2 must not be null");
         this.applicationStatHbaseOperationFactory = Objects.requireNonNull(applicationStatHbaseOperationFactory, "applicationStatHbaseOperationFactory must not be null");
         this.responseTimeSerializer = Objects.requireNonNull(responseTimeSerializer, "responseTimeSerializer must not be null");
-        this.tableNameProvider = Objects.requireNonNull(tableNameProvider, "tableNameProvider must not be null");
     }
 
     public void insert(String id, long timestamp, List<JoinStatBo> joinResponseTimeBoList, StatType statType) {
@@ -56,10 +54,9 @@ public class ResponseTimeDao {
         }
         List<Put> responseTimePuts = applicationStatHbaseOperationFactory.createPuts(id, joinResponseTimeBoList, statType, responseTimeSerializer);
         if (!responseTimePuts.isEmpty()) {
-            TableName applicationStatAggreTableName = tableNameProvider.getTableName(HBaseTables.APPLICATION_STAT_AGGRE_STR);
-            List<Put> rejectedPuts = hbaseTemplate2.asyncPut(applicationStatAggreTableName, responseTimePuts);
+            List<Put> rejectedPuts = hbaseTemplate2.asyncPut(APPLICATION_STAT_AGGRE, responseTimePuts);
             if (CollectionUtils.isNotEmpty(rejectedPuts)) {
-                hbaseTemplate2.put(applicationStatAggreTableName, rejectedPuts);
+                hbaseTemplate2.put(APPLICATION_STAT_AGGRE, rejectedPuts);
             }
         }
     }

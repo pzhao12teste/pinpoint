@@ -18,9 +18,10 @@ package com.navercorp.pinpoint.collector.dao.hbase;
 
 import static com.navercorp.pinpoint.common.hbase.HBaseTables.*;
 
+import com.google.common.util.concurrent.AtomicLongMap;
 import com.navercorp.pinpoint.collector.dao.MapStatisticsCalleeDao;
 import com.navercorp.pinpoint.collector.dao.hbase.statistics.*;
-import com.navercorp.pinpoint.common.hbase.TableNameProvider;
+import com.navercorp.pinpoint.collector.util.AtomicLongMapUtils;
 import com.navercorp.pinpoint.common.server.util.AcceptedTimeService;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
 import com.navercorp.pinpoint.common.trace.ServiceType;
@@ -29,7 +30,6 @@ import com.navercorp.pinpoint.common.util.TimeSlot;
 
 import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Increment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +45,6 @@ import java.util.Map;
  * 
  * @author netspider
  * @author emeroad
- * @author HyunGil Jeong
  */
 @Repository
 public class HbaseMapStatisticsCalleeDao implements MapStatisticsCalleeDao {
@@ -56,23 +55,22 @@ public class HbaseMapStatisticsCalleeDao implements MapStatisticsCalleeDao {
     private HbaseOperations2 hbaseTemplate;
 
     @Autowired
-    private TableNameProvider tableNameProvider;
-
-    @Autowired
     private AcceptedTimeService acceptedTimeService;
 
     @Autowired
     private TimeSlot timeSlot;
 
     @Autowired
-    @Qualifier("calleeBulkIncrementer")
-    private BulkIncrementer bulkIncrementer;
+    @Qualifier("calleeMerge")
+    private RowKeyMerge rowKeyMerge;
 
     @Autowired
     @Qualifier("statisticsCalleeRowKeyDistributor")
     private RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
 
     private final boolean useBulk;
+
+    private final AtomicLongMap<RowInfo> counter = AtomicLongMap.create();
 
     public HbaseMapStatisticsCalleeDao() {
         this(true);
@@ -81,6 +79,7 @@ public class HbaseMapStatisticsCalleeDao implements MapStatisticsCalleeDao {
     public HbaseMapStatisticsCalleeDao(boolean useBulk) {
         this.useBulk = useBulk;
     }
+
 
     @Override
     public void update(String calleeApplicationName, ServiceType calleeServiceType, String callerApplicationName, ServiceType callerServiceType, String callerHost, int elapsed, boolean isError) {
@@ -108,8 +107,8 @@ public class HbaseMapStatisticsCalleeDao implements MapStatisticsCalleeDao {
         final ColumnName callerColumnName = new CallerColumnName(callerServiceType.getCode(), callerApplicationName, callerHost, callerSlotNumber);
 
         if (useBulk) {
-            TableName mapStatisticsCallerTableName = tableNameProvider.getTableName(MAP_STATISTICS_CALLER_VER2_STR);
-            bulkIncrementer.increment(mapStatisticsCallerTableName, calleeRowKey, callerColumnName);
+            RowInfo rowInfo = new DefaultRowInfo(calleeRowKey, callerColumnName);
+            counter.incrementAndGet(rowInfo);
         } else {
             final byte[] rowKey = getDistributedKey(calleeRowKey.getRowKey());
 
@@ -126,8 +125,7 @@ public class HbaseMapStatisticsCalleeDao implements MapStatisticsCalleeDao {
         if (columnName == null) {
             throw new NullPointerException("columnName must not be null");
         }
-        TableName mapStatisticsCallerTableName = tableNameProvider.getTableName(MAP_STATISTICS_CALLER_VER2_STR);
-        hbaseTemplate.incrementColumnValue(mapStatisticsCallerTableName, rowKey, MAP_STATISTICS_CALLER_VER2_CF_COUNTER, columnName, increment);
+        hbaseTemplate.incrementColumnValue(MAP_STATISTICS_CALLER_VER2, rowKey, MAP_STATISTICS_CALLER_VER2_CF_COUNTER, columnName, increment);
     }
 
     @Override
@@ -136,16 +134,17 @@ public class HbaseMapStatisticsCalleeDao implements MapStatisticsCalleeDao {
             throw new IllegalStateException();
         }
 
-        Map<TableName, List<Increment>> incrementMap = bulkIncrementer.getIncrements(rowKeyDistributorByHashPrefix);
+        final Map<RowInfo, Long> remove = AtomicLongMapUtils.remove(this.counter);
 
-        for (Map.Entry<TableName, List<Increment>> e : incrementMap.entrySet()) {
-            TableName tableName = e.getKey();
-            List<Increment> increments = e.getValue();
-            if (logger.isDebugEnabled()) {
-                logger.debug("flush {} to [{}] Increment:{}", this.getClass().getSimpleName(), tableName.getNameAsString(), increments.size());
-            }
-            hbaseTemplate.increment(tableName, increments);
+        final List<Increment> merge = rowKeyMerge.createBulkIncrement(remove, rowKeyDistributorByHashPrefix);
+        if (merge.isEmpty()) {
+            return;
         }
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("flush {} Increment:{}", this.getClass().getSimpleName(), merge.size());
+        }
+        hbaseTemplate.increment(MAP_STATISTICS_CALLER_VER2, merge);
 
     }
 

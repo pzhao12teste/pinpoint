@@ -16,6 +16,8 @@
 
 package com.navercorp.pinpoint.collector.receiver.udp;
 
+import com.navercorp.pinpoint.collector.util.DatagramPacketFactory;
+import com.navercorp.pinpoint.collector.util.DefaultObjectPool;
 import com.navercorp.pinpoint.collector.util.ObjectPool;
 import com.navercorp.pinpoint.collector.util.PacketUtils;
 import com.navercorp.pinpoint.collector.util.PooledObject;
@@ -27,6 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -38,7 +42,6 @@ import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -59,12 +62,13 @@ public class UDPReceiver {
     private final int ioThreadSize = CpuUtils.cpuCount();
     private ExecutorService ioExecutor;
 
-    private final Executor worker;
+    // modify thread pool size appropriately when modifying queue capacity
+    private Executor worker;
 
     // can't really allocate memory as max udp packet sizes are unknown.
     // not allocating memory in advance as I am unsure of the max udp packet size.
     // packet cache is necessary as the JVM does not last long if they are dynamically created with the maximum size.
-    private final ObjectPool<DatagramPacket> datagramPacketPool;
+    private ObjectPool<DatagramPacket> datagramPacketPool;
 
     private final DatagramSocket socket;
 
@@ -73,7 +77,7 @@ public class UDPReceiver {
     private final AtomicBoolean state = new AtomicBoolean(true);
 
     public UDPReceiver(String name, PacketHandlerFactory<DatagramPacket> packetHandlerFactory,
-                       @Qualifier("udpWorker") Executor worker, int receiverBufferSize, InetSocketAddress bindAddress, ObjectPool<DatagramPacket> datagramPacketPool) {
+                       @Qualifier("udpWorker") Executor worker, int receiverBufferSize, InetSocketAddress bindAddress) {
         this.name = Objects.requireNonNull(name);
         this.logger = LoggerFactory.getLogger(name);
 
@@ -84,10 +88,26 @@ public class UDPReceiver {
         Assert.isTrue(receiverBufferSize > 0, "receiverBufferSize must be greater than 0");
         this.socket = createSocket(receiverBufferSize);
 
-        this.datagramPacketPool = Objects.requireNonNull(datagramPacketPool, "datagramPacketPool must not be null");
+        this.datagramPacketPool = createDatagramPacketPool();
     }
 
+    private ObjectPool<DatagramPacket> createDatagramPacketPool() {
+        final int packetPoolSize = getPacketPoolSize();
+        return new DefaultObjectPool<>(new DatagramPacketFactory(), packetPoolSize);
+    }
 
+    private void prepare() {
+        Objects.requireNonNull(packetHandlerFactory, "packetHandlerFactory must not be null");
+
+        this.datagramPacketPool = newDatagramPacketPool();
+
+        this.ioExecutor = Executors.newCachedThreadPool(new PinpointThreadFactory(name + "-Io", true));
+    }
+
+    private ObjectPool<DatagramPacket> newDatagramPacketPool() {
+        final int packetPoolSize = getPacketPoolSize();
+        return new DefaultObjectPool<>(new DatagramPacketFactory(), packetPoolSize);
+    }
 
     private void receive(final DatagramSocket socket) {
         if (logger.isInfoEnabled()) {
@@ -195,9 +215,8 @@ public class UDPReceiver {
         }
     }
 
-    private ExecutorService newThreadPoolExecutor() {
-        final ThreadFactory threadFactory = new PinpointThreadFactory(name + "-Io", true);
-        return Executors.newCachedThreadPool(threadFactory);
+    private int getPacketPoolSize() {
+        return 1024*5;
     }
 
     public void start() {
@@ -205,7 +224,7 @@ public class UDPReceiver {
             logger.info("{} start() started", name);
         }
 
-        this.ioExecutor = newThreadPoolExecutor();
+        prepare();
         final DatagramSocket socket = this.socket;
         if (socket == null) {
             throw new IllegalStateException("socket is null.");

@@ -18,8 +18,8 @@ package com.navercorp.pinpoint.collector.receiver.tcp;
 
 import com.navercorp.pinpoint.collector.cluster.zookeeper.ZookeeperClusterService;
 import com.navercorp.pinpoint.collector.config.AgentBaseDataReceiverConfiguration;
-import com.navercorp.pinpoint.collector.receiver.AddressFilterAdaptor;
 import com.navercorp.pinpoint.collector.receiver.DispatchHandler;
+import com.navercorp.pinpoint.collector.receiver.AddressFilterAdaptor;
 import com.navercorp.pinpoint.common.server.util.AddressFilter;
 import com.navercorp.pinpoint.collector.rpc.handler.AgentLifeCycleHandler;
 import com.navercorp.pinpoint.collector.service.AgentEventService;
@@ -68,7 +68,8 @@ public class AgentBaseDataReceiver {
 
     private final Executor executor;
 
-    private final TCPPacketHandler tcpPacketHandler;
+    private final SendPacketHandler sendPacketHandler;
+    private final RequestPacketHandler requestPacketHandler;
 
 
     @Resource(name = "agentEventService")
@@ -89,15 +90,11 @@ public class AgentBaseDataReceiver {
         this.executor = Objects.requireNonNull(executor, "executor must not be null");
         this.addressFilter = Objects.requireNonNull(addressFilter, "addressFilter must not be null");
 
-        this.tcpPacketHandler = wrapDispatchHandler(dispatchHandler);
-        this.clusterService = service;
-    }
-
-    private TCPPacketHandler wrapDispatchHandler(DispatchHandler dispatchHandler) {
         Objects.requireNonNull(dispatchHandler, "dispatchHandler must not be null");
+        this.sendPacketHandler = new SendPacketHandler(dispatchHandler);
+        this.requestPacketHandler = new RequestPacketHandler(dispatchHandler);
 
-        TCPPacketHandlerFactory tcpPacketHandlerFactory = new DefaultTCPPacketHandlerFactory();
-        return tcpPacketHandlerFactory.build(dispatchHandler);
+        this.clusterService = service;
     }
 
     @PostConstruct
@@ -170,7 +167,7 @@ public class AgentBaseDataReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                tcpPacketHandler.handleSend(sendPacket, pinpointSocket);
+                sendPacketHandler.handle(sendPacket, pinpointSocket);
             }
         });
     }
@@ -179,7 +176,7 @@ public class AgentBaseDataReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                tcpPacketHandler.handleRequest(requestPacket, pinpointSocket);
+                requestPacketHandler.handle(requestPacket, pinpointSocket);
             }
         });
     }

@@ -62,7 +62,6 @@
     </bean>
 
     <import resource="classpath:applicationContext-hbase.xml"/>
-    <import resource="classpath:applicationContext-collector-namespace.xml"/>
 
     <util:list id="cachedStatisticsDaoList" value-type="com.navercorp.pinpoint.collector.dao.CachedStatisticsDao">
         <beans:ref bean="hbaseMapStatisticsCallerDao"/>
@@ -299,7 +298,6 @@
         <property name="udpBufferSize" value="#{spanReceiverConfig.udpReceiveBufferSize}"/>
         <!-- TCP & UDP share threadpool for span -->
         <property name="executor" ref="spanReceiverExecutor"/>
-        <property name="datagramPoolSize" value="#{ statReceiverConfig.workerQueueSize + statReceiverConfig.workerThreadSize }"/>
         <property name="enable" value="#{spanReceiverConfig.isUdpEnable()}"/>
     </bean>
     <bean id="spanTcpReceiver" class="com.navercorp.pinpoint.collector.receiver.TCPReceiverBean">
@@ -328,10 +326,9 @@
         <property name="udpBufferSize" value="#{statReceiverConfig.udpReceiveBufferSize}"/>
         <!-- TCP & UDP share threadpool for stat -->
         <property name="executor" ref="statReceiverExecutor"/>
-        <property name="datagramPoolSize" value="#{ statReceiverConfig.workerQueueSize + statReceiverConfig.workerThreadSize }"/>
         <property name="enable" value="#{statReceiverConfig.isUdpEnable()}"/>
     </bean>
-    <bean id="tcpStatReceiver" class="com.navercorp.pinpoint.collector.receiver.TCPReceiverBean">
+    <bean id="tcpStatReceiver" class="com.navercorp.pinpoint.collector.receiver.UDPReceiverBean">
         <property name="bindIp" value="#{statReceiverConfig.tcpBindIp}"/>
         <property name="bindPort" value="#{statReceiverConfig.tcpBindPort}"/>
         <property name="addressFilter" ref="addressFilter"/>
@@ -352,24 +349,12 @@
         <constructor-arg value="#{hTable.MAP_STATISTICS_CALLEE_VER2_CF_COUNTER}"/>
     </bean>
 
-    <bean id="callerBulkIncrementer" class="com.navercorp.pinpoint.collector.dao.hbase.statistics.BulkIncrementer">
-        <constructor-arg ref="callerMerge"/>
-    </bean>
-
     <bean id="calleeMerge" class="com.navercorp.pinpoint.collector.dao.hbase.statistics.RowKeyMerge">
         <constructor-arg value="#{hTable.MAP_STATISTICS_CALLER_VER2_CF_COUNTER}"/>
     </bean>
 
-    <bean id="calleeBulkIncrementer" class="com.navercorp.pinpoint.collector.dao.hbase.statistics.BulkIncrementer">
-        <constructor-arg ref="calleeMerge"/>
-    </bean>
-
     <bean id="selfMerge" class="com.navercorp.pinpoint.collector.dao.hbase.statistics.RowKeyMerge">
         <constructor-arg value="#{hTable.MAP_STATISTICS_SELF_VER2_CF_COUNTER}"/>
-    </bean>
-
-    <bean id="selfBulkIncrementer" class="com.navercorp.pinpoint.collector.dao.hbase.statistics.BulkIncrementer">
-        <constructor-arg ref="selfMerge"/>
     </bean>
 
     <bean id="timeSlot" class="com.navercorp.pinpoint.common.util.DefaultTimeSlot">

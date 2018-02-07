@@ -1,30 +1,54 @@
-sudo : required
-language: java
-
 addons:
   apt:
     packages:
-      - openjdk-6-jdk
-
-jdk:
- - openjdk7
-
-env: JAVA_6_HOME=/usr/lib/jvm/java-6-openjdk-amd64 JAVA_7_HOME=/usr/lib/jvm/java-7-openjdk-amd64 JAVA_8_HOME=/usr/lib/jvm/java-8-oracle
-
-install:
- - set -o pipefail
- - ls -al $JAVA_6_HOME
- - ls -al $JAVA_7_HOME
- - ls -al $JAVA_8_HOME
- - $JAVA_6_HOME/bin/java -version
- - $JAVA_7_HOME/bin/java -version
- - $JAVA_8_HOME/bin/java -version
- - mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V | grep -Fv '[copy'
-
-script: mvn clover2:setup test -Ptest clover2:aggregate clover2:clover -e | grep -Fv 'DEBUG' | grep -Fv '[copy'
-
+    - openjdk-6-jdk
 after_success:
- - bash <(curl -s https://codecov.io/bash)
-
+- bash <(curl -s https://codecov.io/bash)
+before_cache:
+- rm -rf $HOME/CACHE; find $TRAVIS_BUILD_DIR -name .ekstazi | while read line; do
+  du -sh $line;         DIR=$(dirname $HOME/CACHE$line); mkdir -p $DIR; cp -r $line
+  $DIR; done
+- echo CACHESIZE $(du -sk $HOME/CACHE)
+- cp /tmp/classpathFile $HOME/CACHE/classpathFile
+before_install:
+- if [ "$TRAVIS_OS_NAME" == "osx" ];        then sed -i '' 's/<gib.enabled>true/<gib.enabled>false/'
+  $TRAVIS_BUILD_DIR/pom.xml;        else sed -i 's/<gib.enabled>true/<gib.enabled>false/'
+  $TRAVIS_BUILD_DIR/pom.xml;        fi
+- find $HOME/CACHE -name .ekstazi | while read line; do du -sh $line;         DIR=$(dirname
+  ${line#$HOME/CACHE}); if [[ -d ${DIR#.ekstazi/} ]]; then cp -r $line $DIR; fi; done
+before_script:
+- find $TRAVIS_BUILD_DIR -name .ekstazi | while read line; do rm -rf $line; done
+- find $HOME/CACHE -name .ekstazi | while read line; do du -sh $line;         DIR=$(dirname
+  ${line#$HOME/CACHE}); if [[ -d ${DIR#.ekstazi/} ]]; then cp -r $line $DIR; fi; done
+- if [ "$TRAVIS_OS_NAME" == "osx" ];    then sed -i '' 's/<gib.enabled>false/<gib.enabled>true/'
+  $TRAVIS_BUILD_DIR/pom.xml;    else sed -i 's/<gib.enabled>false/<gib.enabled>true/'
+  $TRAVIS_BUILD_DIR/pom.xml;    fi
+- if [[ -e $HOME/CACHE/classpathFile ]]; then cp $HOME/CACHE/classpathFile /tmp/;
+  fi
+cache:
+  directories:
+  - $HOME/CACHE
 dist:
- - trusty
+- trusty
+env: JAVA_6_HOME=/usr/lib/jvm/java-6-openjdk-amd64 JAVA_7_HOME=/usr/lib/jvm/java-7-openjdk-amd64
+  JAVA_8_HOME=/usr/lib/jvm/java-8-oracle
+install:
+- set -o pipefail
+- ls -al $JAVA_6_HOME
+- ls -al $JAVA_7_HOME
+- ls -al $JAVA_8_HOME
+- $JAVA_6_HOME/bin/java -version
+- $JAVA_7_HOME/bin/java -version
+- $JAVA_8_HOME/bin/java -version
+- mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V | grep -Fv '[copy'
+jdk: []
+language: java
+script:
+- touch /tmp/NOW
+- echo GIBSTUDYSTART $(date)
+- mvn clover2:setup test -Ptest clover2:aggregate clover2:clover -e | grep -Fv 'DEBUG'
+  | grep -Fv '[copy'
+- echo GIBSTUDYEND $(date)
+- cd $TRAVIS_BUILD_DIR
+- echo TESTNUM $(find . -name TEST-*.xml -newer /tmp/NOW | wc -l)
+sudo: required
